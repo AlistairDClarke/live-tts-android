@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.apk
+*.aab
+*.keystore
+bin/
+.hg/
+*.prof
+*.spec.bak
