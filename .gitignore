@@ -11,3 +11,6 @@ bin/
 .hg/
 *.prof
 *.spec.bak
+
+build-log*.zip
+build-log-extracted*/
