@@ -39,13 +39,30 @@ jobs:
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           yes | buildozer -v android debug 2>&1 | tee build-first.log; true
 
-      - name: Patch thorvg recipe (wrap glob in try/except for NDK 25b)
+      - name: Patch thorvg recipe (remove broken libomp copy)
         run: |
-          find ~/.buildozer -name "__init__.py" -path "*/recipes/libthorvg/*" | while read f; do
-            sed -i 's|clang_lib_dir = glob(pattern)\[0\]|try:\n            clang_lib_dir = glob(pattern)[0]\n            libomp = join(clang_lib_dir, "libomp.so")\n            shprint(sh.cp, libomp, join("install", "lib"))\n        except (IndexError, FileNotFoundError):\n            print("WARNING: libomp.so not found, skipping")\n|' "$f"
-            sed -i '/shprint(sh\.cp, libomp, join("install", "lib"))/d' "$f"
-            echo "Patched thorvg: $f"
-          done
+          python3 << 'PYEOF'
+          import glob as g, os
+          for f in g.glob(os.path.expanduser("~/.buildozer/**/recipes/libthorvg/__init__.py"), recursive=True):
+              with open(f) as fh:
+                  lines = fh.readlines()
+              new_lines = []
+              skip = False
+              for line in lines:
+                  if "libomp" in line or "clang_lib_dir" in line:
+                      skip = True
+                      new_lines.append("            # libomp copy skipped (NDK 25b compat)\n")
+                  elif skip and line.strip() == "":
+                      skip = False
+                      continue
+                  elif skip:
+                      continue
+                  else:
+                      new_lines.append(line)
+              with open(f, "w") as fh:
+                  fh.writelines(new_lines)
+              print(f"Patched thorvg: {f}")
+          PYEOF
         if: always()
 
       - name: Build APK (retry)
