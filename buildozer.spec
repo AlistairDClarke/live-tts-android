@@ -16,5 +16,6 @@ android.archs = arm64-v8a
 android.gradle_dependencies = org.pytorch:pytorch_android_lite:2.0.0,org.pytorch:pytorch_android_torchvision_lite:2.0.0
 p4a.branch = develop
 p4a.hostpython3 = python3
+android.ndk = 25b
 android.allow_backup = True
 ios.kivy_ios_branch = master
