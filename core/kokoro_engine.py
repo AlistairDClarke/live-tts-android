@@ -2,10 +2,8 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import torch
 
 from core.tts_engine import BaseTTSEngine, TTSOutput, TTSFactory, VoiceProfile
-
 
 KOKORO_VOICES = [
     "af_heart", "af_bella", "af_nicole", "af_aoede", "af_kore", "af_sarah",
@@ -19,7 +17,7 @@ KOKORO_VOICES = [
     "ff_siwis",
     "hf_alpha", "hf_beta",
     "hm_omega", "hm_psi",
-    "if_sara", "if_sara",
+    "if_sara",
     "im_nicola",
     "jf_alpha", "jf_gongitsune", "jf_nezumi", "jf_tebukuro",
     "jm_kumo",
@@ -32,58 +30,127 @@ KOKORO_VOICES = [
     "zm_yunjian", "zm_yunxia", "zm_yunyang",
 ]
 
+KOKORO_MODEL_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
+    "tts-models/kokoro-multi-lang-v1_0.tar.bz2"
+)
+
 
 @TTSFactory.register("kokoro")
 class KokoroEngine(BaseTTSEngine):
 
     def __init__(self):
-        self._pipeline = None
+        self._tts = None
+        self._config = None
         self._device: str = "cpu"
         self._sr: int = 24000
         self._current_voice: str = "af_heart"
-
-    def initialize(self) -> None:
-        from kokoro import KPipeline
-        self._pipeline = KPipeline(
-            lang_code='a',
-            repo_id='hexgrad/Kokoro-82M',
-            device=self._device,
-        )
-
-        self._pipeline("warmup", voice=self._current_voice, speed=1.0).__next__()
+        self._model_dir: Optional[Path] = None
 
     @property
     def sample_rate(self) -> int:
         return self._sr
 
-    def generate(self, text: str, voice: Optional[VoiceProfile] = None, speed: float = 1.0) -> TTSOutput:
-        if self._pipeline is None:
+    def initialize(self) -> None:
+        import sherpa_onnx
+
+        self._model_dir = self._ensure_model()
+
+        self._config = sherpa_onnx.OfflineTtsConfig(
+            model=sherpa_onnx.OfflineTtsModelConfig(
+                kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
+                    model=str(self._model_dir / "model.onnx"),
+                    voices=str(self._model_dir / "voices.bin"),
+                    tokens=str(self._model_dir / "tokens.txt"),
+                    data_dir=str(self._model_dir / "espeak-ng-data"),
+                    lexicon=",".join([
+                        str(self._model_dir / "lexicon-us-en.txt"),
+                        str(self._model_dir / "lexicon-zh.txt"),
+                    ]),
+                ),
+                provider="cpu",
+                debug=False,
+                num_threads=2,
+            ),
+            max_num_sentences=1,
+        )
+
+        if not self._config.validate():
+            raise RuntimeError("Invalid TTS config")
+
+        self._tts = sherpa_onnx.OfflineTts(self._config)
+        self._sr = 24000
+
+    def _ensure_model(self) -> Path:
+        import os
+        import tarfile
+        import urllib.request
+
+        model_dir = Path(__file__).parent.parent / "voices" / "kokoro_model"
+        model_file = model_dir / "model.onnx"
+
+        if model_file.exists():
+            return model_dir
+
+        model_dir.mkdir(parents=True, exist_ok=True)
+
+        archive_path = model_dir / "kokoro-multi-lang-v1_0.tar.bz2"
+        if not archive_path.exists():
+            urllib.request.urlretrieve(KOKORO_MODEL_URL, archive_path)
+
+        with tarfile.open(archive_path) as tf:
+            members = tf.getmembers()
+            if members:
+                prefix = members[0].name.split("/")[0] + "/"
+                for member in members:
+                    if member.name.startswith(prefix):
+                        member.name = member.name[len(prefix):]
+                    if member.name:
+                        tf.extract(member, model_dir)
+
+        try:
+            os.unlink(archive_path)
+        except Exception:
+            pass
+
+        return model_dir
+
+    def generate(
+        self,
+        text: str,
+        voice: Optional[VoiceProfile] = None,
+        speed: float = 1.0,
+    ) -> TTSOutput:
+        if self._tts is None:
             raise RuntimeError("Engine not initialized")
+
+        import sherpa_onnx
 
         voice_name = self._current_voice
         if voice is not None and voice.metadata.get("kokoro_voice"):
             voice_name = voice.metadata["kokoro_voice"]
 
-        audio_chunks: list = []
-        generator = self._pipeline(text, voice=voice_name, speed=speed)
-        for _, _, audio in generator:
-            if hasattr(audio, 'numpy'):
-                audio = audio.numpy()
-            elif hasattr(audio, 'cpu'):
-                audio = audio.cpu().numpy()
-            audio_chunks.append(audio)
+        sid = self._voice_name_to_sid(voice_name)
 
-        if not audio_chunks:
-            audio = self._pipeline(text, voice=voice_name, speed=speed).__next__()[2]
-            if hasattr(audio, 'numpy'):
-                audio = audio.numpy()
-            elif hasattr(audio, 'cpu'):
-                audio = audio.cpu().numpy()
-            audio_chunks = [audio]
+        gen_config = sherpa_onnx.GenerationConfig()
+        gen_config.sid = sid
+        gen_config.speed = speed
+        gen_config.silence_scale = 0.2
 
-        combined = np.concatenate(audio_chunks) if len(audio_chunks) > 1 else audio_chunks[0]
-        duration = len(combined) / self._sr
-        return TTSOutput(audio=combined, sample_rate=self._sr, duration_seconds=duration)
+        result = self._tts.generate(text, gen_config)
+
+        audio = np.array(result.samples, dtype=np.float32)
+        duration = len(audio) / result.sample_rate
+        return TTSOutput(
+            audio=audio,
+            sample_rate=result.sample_rate,
+            duration_seconds=duration,
+        )
+
+    def _voice_name_to_sid(self, name: str) -> int:
+        if name in KOKORO_VOICES:
+            return KOKORO_VOICES.index(name)
+        return 0
 
     def list_voices(self) -> list[VoiceProfile]:
         voices: list[VoiceProfile] = []
@@ -96,6 +163,5 @@ class KokoroEngine(BaseTTSEngine):
         return voices
 
     def unload(self) -> None:
-        self._pipeline = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        self._tts = None
+        self._config = None

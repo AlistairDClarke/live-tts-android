@@ -31,6 +31,10 @@ try:
     import core.chatterbox_full_engine
 except ImportError:
     pass
+try:
+    import numpy as np
+except ImportError:
+    pass
 from core.tts_engine import TTSFactory
 from core.text_processor import chunk_text, normalize_text, find_chunk_at_position
 from core.ebook_parser import parse_ebook

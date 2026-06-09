@@ -1,9 +1,7 @@
 kivy>=2.2.0
 numpy>=1.24.0
-torch>=2.0.0
-torchaudio>=2.0.0
-kokoro>=0.9.2
-chatterbox-tts
+sherpa-onnx
+onnxruntime
 ebooklib
 PyMuPDF
 beautifulsoup4
