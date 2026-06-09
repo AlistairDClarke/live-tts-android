@@ -34,6 +34,7 @@ jobs:
             cmake \
             gcc \
             g++ \
+            gfortran \
             git \
             wget \
             unzip \
@@ -58,6 +59,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          export FC=gfortran
+          export FCFLAGS=""
+          export FFLAGS=""
           bash -c 'set -o pipefail; yes 2>/dev/null | buildozer -v android debug 2>&1 | tee build.log'
 
       - name: Upload APK
