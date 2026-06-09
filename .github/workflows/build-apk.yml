@@ -60,18 +60,21 @@ jobs:
         run: |
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
-          # Create gfortran wrapper to strip unsupported -Qunused-arguments flag
-          cat > /tmp/gfortran-wrap << 'WRAPEOF'
+          # Create gfortran wrappers that strip -Qunused-arguments (unsupported by gfortran)
+          for compiler in f95 gfortran; do
+            cat > /usr/local/bin/$compiler << 'WRAPEOF'
           #!/bin/bash
           args=()
           for arg in "$@"; do
             [[ "$arg" != "-Qunused-arguments" ]] && args+=("$arg")
           done
-          exec gfortran "${args[@]}"
+          exec /usr/bin/WRAPNAME "${args[@]}"
           WRAPEOF
-          chmod +x /tmp/gfortran-wrap
+            sed -i "s/WRAPNAME/$compiler/g" /usr/local/bin/$compiler
+            chmod +x /usr/local/bin/$compiler
+          done
 
-          export FC=/tmp/gfortran-wrap
+          export FC=/usr/local/bin/gfortran
           export FCFLAGS=""
           export FFLAGS=""
           bash -c 'set -o pipefail; yes 2>/dev/null | buildozer -v android debug 2>&1 | tee build.log'
