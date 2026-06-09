@@ -67,9 +67,10 @@ jobs:
           # First run: let buildozer set up SDK/NDK and clone p4a (will fail at numpy)
           yes 2>/dev/null | buildozer -v android debug 2>&1 | tee build.log || true
 
-          # Patch broken numpy recipe version
+          # Patch broken numpy recipe (git tag doesn't exist, use tarball URL)
           find ~/.buildozer -name "__init__.py" -path "*/recipes/numpy/*" | while read f; do
-            sed -i 's/version = "v2\.3\.0"/version = "v2.2.6"/' "$f"
+            sed -i 's|version = "v2\.3\.0"|version = "2.2.6"|' "$f"
+            sed -i 's|url = "git+https://github.com/numpy/numpy"|url = "https://files.pythonhosted.org/packages/source/n/numpy/numpy-2.2.6.tar.gz"|' "$f"
             echo "Patched numpy recipe: $f"
           done
 
