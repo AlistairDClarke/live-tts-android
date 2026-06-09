@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout code
@@ -39,7 +39,7 @@ jobs:
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.3.13750724
-          buildozer -v android debug 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
+          yes | buildozer -v android debug 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
