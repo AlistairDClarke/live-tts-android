@@ -18,3 +18,6 @@ bl*/
 voices/kokoro_model/
 *.wav
 test_output.wav
+
+bl*.zip
+build-log-*/
