@@ -14,80 +14,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
-
-      - name: Install system dependencies
+      - name: Build APK with Docker
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            openjdk-17-jdk \
-            autoconf \
-            automake \
-            libtool \
-            libltdl-dev \
-            libffi-dev \
-            libssl-dev \
-            zlib1g-dev \
-            cmake \
-            gcc \
-            g++ \
-            gfortran \
-            git \
-            wget \
-            unzip \
-            zip \
-            libsndfile1 \
-            libsndfile1-dev
-
-      - name: Install Buildozer
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install buildozer cython virtualenv numpy
-
-      - name: Cache Buildozer global dir
-        uses: actions/cache@v4
-        with:
-          path: ~/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v2
-          restore-keys: |
-            buildozer-${{ runner.os }}-
-
-      - name: Setup p4a (clone & patch)
-        working-directory: ${{ github.workspace }}
-        run: |
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
-          export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.3.13750724
-          export ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/27.3.13750724
-
-          # First run: let buildozer set up SDK/NDK and clone p4a (will fail at numpy)
-          yes 2>/dev/null | buildozer -v android debug 2>&1 | tee build.log || true
-
-          # Patch broken numpy recipe (git tag doesn't exist, use tarball URL)
-          find ~/.buildozer -name "__init__.py" -path "*/recipes/numpy/*" | while read f; do
-            sed -i 's|version = "v2\.3\.0"|version = "2.2.6"|' "$f"
-            sed -i 's|url = "git+https://github.com/numpy/numpy"|url = "https://files.pythonhosted.org/packages/source/n/numpy/numpy-2.2.6.tar.gz"|' "$f"
-            echo "Patched numpy recipe: $f"
-          done
-
-      - name: Build APK (retry with patched recipe)
-        working-directory: ${{ github.workspace }}
-        run: |
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
-          export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.3.13750724
-          export ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/27.3.13750724
-
-          # Clean build artifacts from failed first attempt
-          rm -rf .buildozer/android/platform/build-arm64-v8a/dists/livetts 2>/dev/null || true
-          rm -rf .buildozer/android/platform/build-arm64-v8a/build/other_builds 2>/dev/null || true
-
-          bash -c 'set -o pipefail; buildozer -v android debug 2>&1 | tee build.log'
+          docker run --rm \
+            -v ${{ github.workspace }}:/home/user/hostcwd \
+            -v ${{ github.workspace }}/.buildozer:/home/user/.buildozer \
+            kivy/buildozer \
+            bash -c '
+              cd /home/user/hostcwd && \
+              JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
+              yes 2>/dev/null | buildozer -v android debug 2>&1 | tee build.log
+            '
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

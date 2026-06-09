@@ -5,15 +5,13 @@ package.domain = org.livetts
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,wav,json,onnx,pt,bin,token
 version = 0.1.0
-requirements = python3,kivy,numpy==2.2.6,pyjnius
+requirements = python3,kivy,numpy,pyjnius
 orientation = portrait
 fullscreen = 1
 android.permissions = INTERNET,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
 android.api = 33
 android.minapi = 24
-android.ndk_path = /usr/local/lib/android/sdk/ndk/27.3.13750724
 android.arch = arm64-v8a
-p4a.branch = develop
 p4a.hostpython3 = python3
 android.allow_backup = True
 ios.kivy_ios_branch = master
