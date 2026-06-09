@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -30,33 +30,12 @@ jobs:
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install buildozer cython virtualenv numpy==2.2.6
-
-      - name: Build APK (first pass - let p4a clone)
-        continue-on-error: true
-        working-directory: ${{ github.workspace }}
-        run: |
-          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
-          export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.3.13750724
-          yes | buildozer -v android debug 2>&1 | tee build-pre.log; true
-
-      - name: Patch p4a numpy recipe
-        run: |
-          find ~/.buildozer -name "__init__.py" -path "*/recipes/numpy/*" | while read f; do
-            sed -i 's/version = "v2\.3\.0"/version = "v2.2.6"/' "$f"
-            sed -i 's|url = "git+https://github.com/numpy/numpy"|url = "https://files.pythonhosted.org/packages/source/n/numpy/numpy-2.2.6.tar.gz"|' "$f"
-            cat "$f" | grep -E "version|url" | head -2
-          done
+          pip install buildozer cython virtualenv
 
       - name: Build APK
         working-directory: ${{ github.workspace }}
         run: |
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
-          export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/27.3.13750724
           yes | buildozer -v android debug 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
 
       - name: Upload APK
