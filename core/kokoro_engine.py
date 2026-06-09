@@ -1,10 +1,9 @@
+import array
 import os
 import threading
 import time
 from pathlib import Path
 from typing import Optional
-
-import numpy as np
 
 from core.tts_engine import BaseTTSEngine, TTSOutput, TTSFactory, VoiceProfile
 
@@ -195,17 +194,23 @@ class KokoroEngine(BaseTTSEngine):
             nframes = wf.getnframes()
             raw = wf.readframes(nframes)
 
-        import numpy as np
         if sampwidth == 2:
-            dtype = np.int16
+            arr = array.array("h")
+            arr.frombytes(raw)
+            max_val = 32767.0
         elif sampwidth == 4:
-            dtype = np.int32
-
-        audio_int = np.frombuffer(raw, dtype=dtype)
-        audio = audio_int.astype(np.float32) / np.iinfo(dtype).max
+            arr = array.array("i")
+            arr.frombytes(raw)
+            max_val = 2147483647.0
 
         if nchannels > 1:
-            audio = audio.reshape(-1, nchannels).mean(axis=1)
+            mono = array.array("f", [0.0]) * (len(arr) // nchannels)
+            for i in range(len(mono)):
+                total = sum(arr[i * nchannels + ch] for ch in range(nchannels))
+                mono[i] = (total / nchannels) / max_val
+            audio = list(mono)
+        else:
+            audio = [s / max_val for s in arr]
 
         duration = len(audio) / framerate
 

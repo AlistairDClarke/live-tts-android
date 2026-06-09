@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout code
@@ -32,11 +32,26 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install buildozer cython virtualenv
 
-      - name: Build APK
+      - name: First pass (setup p4a and SDK)
+        continue-on-error: true
         working-directory: ${{ github.workspace }}
         run: |
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          export CFLAGS="-Wno-error=implicit-function-declaration"
+          yes | buildozer -v android debug 2>&1 | tee build-first.log; true
+
+      - name: Patch thorvg recipe (wrap glob in try/except for NDK 25b)
+        run: |
+          find ~/.buildozer -name "__init__.py" -path "*/recipes/libthorvg/*" | while read f; do
+            sed -i 's|clang_lib_dir = glob(pattern)\[0\]|try:\n            clang_lib_dir = glob(pattern)[0]\n            libomp = join(clang_lib_dir, "libomp.so")\n            shprint(sh.cp, libomp, join("install", "lib"))\n        except (IndexError, FileNotFoundError):\n            print("WARNING: libomp.so not found, skipping")\n|' "$f"
+            sed -i '/shprint(sh\.cp, libomp, join("install", "lib"))/d' "$f"
+            echo "Patched thorvg: $f"
+          done
+        if: always()
+
+      - name: Build APK (retry)
+        working-directory: ${{ github.workspace }}
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           yes | buildozer -v android debug 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
 
       - name: Upload APK

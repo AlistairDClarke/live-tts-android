@@ -9,7 +9,6 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import numpy as np
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.boxlayout import BoxLayout
@@ -306,13 +305,13 @@ class LiveTTSApp(App):
         self._status.text = "Playing..."
 
     def _generator_loop(self, chunks):
-        import wave, tempfile
+        import wave, tempfile, array
         for c in chunks:
             tts_text = normalize_text(c.text)
             output = self._engine.generate(tts_text, speed=self._speed)
             fd, path = tempfile.mkstemp(suffix=".wav")
-            d = np.ascontiguousarray(output.audio, dtype=np.float32)
-            d16 = np.clip(d * 32767, -32768, 32767).astype(np.int16)
+            audio_list = output.audio if isinstance(output.audio, list) else list(output.audio)
+            d16 = array.array("h", [max(-32768, min(32767, int(s * 32767))) for s in audio_list])
             with os.fdopen(fd, "wb") as f:
                 with wave.open(f, "wb") as wf:
                     wf.setnchannels(1)

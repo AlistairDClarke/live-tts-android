@@ -1,11 +1,10 @@
+import array
 import os
 import sys
 import threading
 import tempfile
 import time
 import wave
-
-import numpy as np
 
 # Try Android native audio, fall back to Kivy Sound
 try:
@@ -26,7 +25,7 @@ class AudioService:
         self._lock = threading.Lock()
         self._dir = tempfile.mkdtemp(prefix="tts_audio_")
 
-    def play(self, audio: np.ndarray, sample_rate: int):
+    def play(self, audio: list, sample_rate: int):
         path = self._write_wav(audio, sample_rate)
         self._play_file(path)
         try:
@@ -44,16 +43,15 @@ class AudioService:
                     pass
                 self._current_player = None
 
-    def _write_wav(self, audio: np.ndarray, sample_rate: int) -> str:
+    def _write_wav(self, audio: list, sample_rate: int) -> str:
         fd, path = tempfile.mkstemp(suffix=".wav", dir=self._dir)
-        data = np.ascontiguousarray(audio, dtype=np.float32)
-        data_16 = np.clip(data * 32767, -32768, 32767).astype(np.int16)
+        d16 = array.array("h", [max(-32768, min(32767, int(s * 32767))) for s in audio])
         with os.fdopen(fd, "wb") as f:
             with wave.open(f, "wb") as wf:
                 wf.setnchannels(1)
                 wf.setsampwidth(2)
                 wf.setframerate(sample_rate)
-                wf.writeframes(data_16.tobytes())
+                wf.writeframes(d16.tobytes())
         return path
 
     def _play_file(self, path: str):

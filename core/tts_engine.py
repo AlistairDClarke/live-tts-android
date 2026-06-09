@@ -1,20 +1,13 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
-
-import numpy as np
-import torch
+from typing import Optional, Union, List
 
 
 @dataclass
 class TTSOutput:
-    audio: np.ndarray
+    audio: List[float]
     sample_rate: int
     duration_seconds: float
-
-    @property
-    def tensor(self) -> torch.Tensor:
-        return torch.from_numpy(self.audio).float()
 
 
 @dataclass
