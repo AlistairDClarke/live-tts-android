@@ -5,7 +5,7 @@ package.domain = org.livetts
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,wav,json,onnx,pt,bin,token
 version = 0.1.0
-requirements = python3,kivy,numpy,ebooklib,beautifulsoup4,lxml,pyjnius
+requirements = python3,kivy==2.2.1,numpy==1.26.4,ebooklib,beautifulsoup4,lxml,pyjnius
 orientation = portrait
 fullscreen = 1
 android.permissions = INTERNET,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,MANAGE_EXTERNAL_STORAGE,READ_MEDIA_AUDIO
