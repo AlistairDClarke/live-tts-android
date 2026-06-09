@@ -59,7 +59,19 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-          export FC=gfortran
+
+          # Create gfortran wrapper to strip unsupported -Qunused-arguments flag
+          cat > /tmp/gfortran-wrap << 'WRAPEOF'
+          #!/bin/bash
+          args=()
+          for arg in "$@"; do
+            [[ "$arg" != "-Qunused-arguments" ]] && args+=("$arg")
+          done
+          exec gfortran "${args[@]}"
+          WRAPEOF
+          chmod +x /tmp/gfortran-wrap
+
+          export FC=/tmp/gfortran-wrap
           export FCFLAGS=""
           export FFLAGS=""
           bash -c 'set -o pipefail; yes 2>/dev/null | buildozer -v android debug 2>&1 | tee build.log'
